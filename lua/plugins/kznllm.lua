@@ -19,6 +19,10 @@ return {
       local openai_template_path = utils.join_path({ utils.TEMPLATE_PATH, 'openai' })
       local openai_system_template = utils.join_path({ openai_template_path, 'fill_mode_system_prompt.xml.jinja' })
       local openai_user_template = utils.join_path({ openai_template_path, 'fill_mode_user_prompt.xml.jinja' })
+      local anthropic_template_path = utils.join_path({ utils.TEMPLATE_PATH, 'anthropic' })
+      local anthropic_debug_template = utils.join_path({ anthropic_template_path, 'debug.xml.jinja' })
+      local anthropic_system_template = utils.join_path({ anthropic_template_path, 'fill_mode_system_prompt.xml.jinja' })
+      local anthropic_user_template = utils.join_path({ anthropic_template_path, 'fill_mode_user_prompt.xml.jinja' })
 
       -- Function to create the invoke for preset configurations
       local function create_invoke(config)
@@ -157,9 +161,9 @@ return {
       }
 
       -- Configure Anthropic with claude-3.5-latest preset
-      local claude35_config = {
-  id = "claude-3.5-latest",
-  description = "Anthropic Claude 3.5",
+local claude_sonnet_config = {
+  id = "claude-3-5-sonnet",
+  description = "Anthropic Claude 3.5 Sonnet",
   preset_builder = anthropic.AnthropicPresetBuilder
     :new()
     :add_system_prompts({
@@ -173,42 +177,77 @@ return {
       { type = 'text', role = 'user', path = anthropic_user_template },
     })
     :with_opts({
+      debug_template_path = anthropic_debug_template,
       params = {
-        model = "claude-3-opus-20240229",  -- Updated model name
+        model = "claude-3-5-sonnet-20241022",
         stream = true,
         max_tokens = 4096,
         temperature = 0.7,
       },
     })
 }
-      -- Assign invoke functions to the presets
-      presets.options = {
-        {
-          id = qwen_config.id,
-          description = qwen_config.description,
-          preset_builder = qwen_config.preset_builder,
-          invoke = create_invoke(qwen_config)
-        },
-        {
-          id = grok_config.id,
-          description = grok_config.description,
-          preset_builder = grok_config.preset_builder,
-          invoke = create_invoke(grok_config)
-        },
-        {
-          id = gpt4o_config.id,
-          description = gpt4o_config.description,
-          preset_builder = gpt4o_config.preset_builder,
-          invoke = create_invoke(gpt4o_config)
-        },
-        {
-          id = claude35_config.id,
-          description = claude35_config.description,
-          preset_builder = claude35_config.preset_builder,
-          invoke = create_invoke(claude35_config)
-        }
-      }
 
+-- Configure Anthropic with claude-3-5-haiku preset
+local claude_haiku_config = {
+  id = "claude-3-5-haiku",
+  description = "Anthropic Claude 3.5 Haiku",
+  preset_builder = anthropic.AnthropicPresetBuilder
+    :new()
+    :add_system_prompts({
+      {
+        type = 'text',
+        path = anthropic_system_template,
+        cache_control = { type = 'ephemeral' },
+      },
+    })
+    :add_message_prompts({
+      { type = 'text', role = 'user', path = anthropic_user_template },
+    })
+    :with_opts({
+      debug_template_path = anthropic_debug_template,
+      params = {
+        model = "claude-3-5-haiku-20241022",
+        stream = true,
+        max_tokens = 4096,
+        temperature = 0.7,
+      },
+    })
+}
+
+
+            -- Assign invoke functions to the presets
+presets.options = {
+  {
+    id = qwen_config.id,
+    description = qwen_config.description,
+    preset_builder = qwen_config.preset_builder,
+    invoke = create_invoke(qwen_config)
+  },
+  {
+    id = grok_config.id,
+    description = grok_config.description,
+    preset_builder = grok_config.preset_builder,
+    invoke = create_invoke(grok_config)
+  },
+  {
+    id = gpt4o_config.id,
+    description = gpt4o_config.description,
+    preset_builder = gpt4o_config.preset_builder,
+    invoke = create_invoke(gpt4o_config)
+  },
+  {
+    id = claude_sonnet_config.id,
+    description = claude_sonnet_config.description,
+    preset_builder = claude_sonnet_config.preset_builder,
+    invoke = create_invoke(claude_sonnet_config)
+  },
+  {
+    id = claude_haiku_config.id,
+    description = claude_haiku_config.description,
+    preset_builder = claude_haiku_config.preset_builder,
+    invoke = create_invoke(claude_haiku_config)
+  }
+}
       -- Keybindings for preset switching and invoking
       vim.keymap.set({ 'n', 'v' }, '<leader>m', function()
         presets.switch_presets(presets.options)
