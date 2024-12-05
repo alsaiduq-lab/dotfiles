@@ -3,8 +3,7 @@ return {
   {
     'vyfor/cord.nvim',
     lazy = false,
-    build = 'powershell.exe -c .\\build.bat',
-    -- Note: The following configuration only works for Windows. Linux and macOS users need to adjust the build command.
+    build = vim.fn.has('win32') and 'powershell.exe -c .\\build.bat' or './build',
     config = function()
       require('cord').setup({
         usercmds = true,

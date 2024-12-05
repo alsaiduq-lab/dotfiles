@@ -1,4 +1,3 @@
-_G.vim = vim
 return {
   {
     'chottolabs/kznllm.nvim',
@@ -6,55 +5,197 @@ return {
       { 'j-hui/fidget.nvim' },
     },
     config = function(self)
-      -- Import necessary modules
       local presets = require('kznllm.presets.basic')
       local utils = require('kznllm.utils')
       local openai = require('kznllm.specs.openai')
       local anthropic = require('kznllm.specs.anthropic')
       local buffer_manager = require('kznllm.buffer').buffer_manager
-      local api = vim.api
       local progress = require('fidget.progress')
 
-      -- Define paths for templates
-      local openai_template_path = utils.join_path({ utils.TEMPLATE_PATH, 'openai' })
-      local openai_system_template = utils.join_path({ openai_template_path, 'fill_mode_system_prompt.xml.jinja' })
-      local openai_user_template = utils.join_path({ openai_template_path, 'fill_mode_user_prompt.xml.jinja' })
-      local anthropic_template_path = utils.join_path({ utils.TEMPLATE_PATH, 'anthropic' })
-      local anthropic_debug_template = utils.join_path({ anthropic_template_path, 'debug.xml.jinja' })
-      local anthropic_system_template = utils.join_path({ anthropic_template_path, 'fill_mode_system_prompt.xml.jinja' })
-      local anthropic_user_template = utils.join_path({ anthropic_template_path, 'fill_mode_user_prompt.xml.jinja' })
-      
-      -- Add local model support through OpenAI compatibility layer
-      local local_models = {
-        ["mixtral-8x7b-instruct"] = {
-          id = "mixtral-8x7b-instruct",
-          description = "Mixtral 8x7B Instruct",
-          base_url = "http://localhost:8000",
-          max_tokens = 4096
+      local TEMPLATE_DIR = utils.TEMPLATE_PATH
+      local function get_template_path(model, filename)
+        return utils.join_path({ TEMPLATE_DIR, model, filename })
+      end
+
+      -- Templates for different models
+      local templates = {
+        openai = {
+          system = get_template_path('openai', 'fill_mode_system_prompt.xml.jinja'),
+          user = get_template_path('openai', 'fill_mode_user_prompt.xml.jinja'),
         },
-        ["mistral-7b-instruct"] = {
-          id = "mistral-7b-instruct",
-          description = "Mistral 7B Instruct",
-          base_url = "http://localhost:8000",
-          max_tokens = 4096
-        }
+        anthropic = {
+          debug = get_template_path('anthropic', 'debug.xml.jinja'),
+          system = get_template_path('anthropic', 'fill_mode_system_prompt.xml.jinja'),
+          user = get_template_path('anthropic', 'fill_mode_user_prompt.xml.jinja'),
+        },
+        qwen = {
+          system = get_template_path('qwen', 'fill_mode_system_prompt.xml.jinja'),
+          user = get_template_path('qwen', 'fill_mode_user_prompt.xml.jinja'),
+          instruct = get_template_path('qwen', 'fill_mode_instruct_completion_prompt.xml.jinja'),
+        },
       }
 
-      -- Function to create the invoke for preset configurations
-      local function create_invoke(config)
+      local BasicQwenPreset = openai.OpenAIPresetBuilder
+        :new()
+        :add_system_prompts({
+          { type = 'text', path = templates.qwen.system },
+        })
+        :add_message_prompts({
+          { type = 'text', role = 'user', path = templates.qwen.user },
+        })
+
+      local BasicOpenAIPreset = openai.OpenAIPresetBuilder
+        :new()
+        :add_system_prompts({
+          { type = 'text', path = templates.openai.system },
+        })
+        :add_message_prompts({
+          { type = 'text', role = 'user', path = templates.openai.user },
+        })
+
+      local BasicAnthropicPreset = anthropic.AnthropicPresetBuilder
+        :new()
+        :add_system_prompts({
+            { type = 'text', path = templates.anthropic.system },
+        })
+        :add_message_prompts({
+            { type = 'text', role = 'user', path = templates.anthropic.user },
+        })
+
+      local BasicGrokPreset = openai.OpenAIPresetBuilder
+        :new()
+        :add_system_prompts({
+            { type = 'text', path = get_template_path('grok', 'fill_mode_system_prompt.xml.jinja') },
+        })
+        :add_message_prompts({
+            { type = 'text', role = 'user', path = get_template_path('grok', 'fill_mode_user_prompt.xml.jinja') },
+        })
+
+      -- Progress message generator
+      local function create_progress_generator()
+        local thinking_messages = {
+          "vibing for %ds...",
+          "yapping for %ds...",
+          "skidibing for %ds...",
+          "whipping up a yappacino for %ds ... ",
+          "being a chill guy for %ds...",
+          "been rizzing u up for %ds ...",
+        }
+        local progress_messages = {
+          "still vibing...",
+          "deadass almost done...",
+          "computing...",
+          "AI brain working hard ...",
+        }
+        local state = {
+          phase = 1,
+          index = 1,
+          start_time = os.time(),
+          last_message_time = os.time(),
+          message_interval = 3,
+        }
+
+        return function()
+          local now = os.time()
+          if now - state.last_message_time < state.message_interval then
+            return nil
+          end
+          state.last_message_time = now
+
+          local time_elapsed = now - state.start_time
+          local messages = state.phase == 1 and thinking_messages or progress_messages
+          local message = messages[state.index]:format(time_elapsed)
+
+          if state.phase == 1 and time_elapsed >= 18 then
+            state.phase = 2
+            state.index = 1
+          else
+            state.index = (state.index % #messages) + 1
+          end
+
+          return message
+        end
+      end
+
+      -- Model configurations
+      local model_configs = {
+        local_models = {
+          ["qwen2.5-coder:14b-instruct-q8_0"] = {
+            id = "qwen2.5-coder:14b-instruct-q8_0",
+            description = "Qwen2.5-coder 14b",
+            base_url = "http://localhost:11434",
+            max_tokens = 8192,
+            preset_builder = BasicQwenPreset,
+            params = {
+              temperature = 0.3,
+            },
+          },
+        },
+        cloud_models = {
+         gpt4 = {
+            id = "gpt-4o",
+            description = "OpenAI GPT-4o",
+            base_url = "https://api.openai.com",
+            max_tokens = 12000,
+            preset_builder = BasicOpenAIPreset,
+            params = {
+              temperature = 0.5,
+            },
+          },
+          grok = {
+            id = "grok-beta",
+            description = "xAI Grok Beta",
+            base_url = "https://api.x.ai",
+            api_key_name = "XAI_API_KEY",
+            max_tokens = 131072,
+            preset_builder = BasicGrokPreset,
+          },
+        },
+      }
+
+      -- Enhanced invoke function for each model
+      local function create_enhanced_invoke(config)
+        local provider = openai.OpenAIProvider:new({
+          base_url = config.base_url,
+          api_key_name = config.api_key_name,
+        })
+
+        local preset = config.preset_builder:with_opts({
+          provider = provider,
+          debug_template_path = templates.qwen.instruct,
+          params = {
+            model = config.id,
+            stream = true,
+            temperature = 0.7,
+            top_p = 0.9,
+            max_tokens = config.max_tokens,
+          },
+        })
+
         return function(opts)
-          local user_query = utils.get_user_input()
-          if not user_query then return end
+          local success, user_query = pcall(utils.get_user_input)
+          if not success or not user_query then
+            vim.notify('Failed to get user input', vim.log.levels.ERROR)
+            return
+          end
 
           local selection, replace = utils.get_visual_selection(opts)
-          local current_buf_id = api.nvim_get_current_buf()
+          local current_buf_id = vim.api.nvim_get_current_buf()
           local current_buffer_context = buffer_manager:get_buffer_context(current_buf_id)
 
+          -- Create state with start time
+          local invoke_state = {
+            start_time = os.time()
+          }
+          local progress_generator = create_progress_generator()
+
+          -- Setup progress reporting
           local p = progress.handle.create({
-            title = ('[%s]'):format(replace and 'replacing' or 'yapping'),
+            title = ('[%s]'):format(replace and 'Replacing' or 'Processing'),
             lsp_client = { name = 'kznllm' },
           })
 
+          -- Prepare prompt arguments
           local prompt_args = {
             user_query = user_query,
             visual_selection = selection,
@@ -63,245 +204,78 @@ return {
             context_files = utils.get_project_files(),
           }
 
-          local curl_options = config.preset_builder:build(prompt_args)
-
-          if opts.debug then
-            local scratch_buf_id = buffer_manager:create_scratch_buffer()
-            local debug_data = utils.make_prompt_from_template({
-              template_path = config.preset_builder.debug_template_path,
-              prompt_args = curl_options,
-            })
-            buffer_manager:write_content(debug_data, scratch_buf_id)
-            vim.cmd('normal! Gzz')
+          -- Build curl options
+          local curl_options = preset:build(prompt_args)
+          if not curl_options then
+            vim.notify('Failed to build prompt arguments', vim.log.levels.ERROR)
+            return
           end
 
-          local provider = config.preset_builder.provider
-          local args = provider:make_curl_args(curl_options)
+          -- Debug mode handling
+          if opts.debug then
+            local scratch_buf_id = buffer_manager:create_scratch_buffer()
+            local success, debug_data = pcall(utils.make_prompt_from_template, {
+              template_path = preset.debug_template_path,
+              prompt_args = curl_options,
+            })
+            if success and debug_data then
+              buffer_manager:write_content(debug_data, scratch_buf_id)
+              vim.cmd('normal! Gzz')
+            else
+              vim.notify('Failed to create debug data', vim.log.levels.ERROR)
+            end
+          end
 
-          local state = { start = os.time(), last_updated = nil }
-          p:report({ message = ('%s'):format(config.description) })
-          local message = 'yapped'
+          -- Create and start streaming job
+          local args = provider:make_curl_args(curl_options)
+          p:report({ message = config.description })
 
           buffer_manager:create_streaming_job(args, provider.handle_sse_stream, function()
-            local elapsed = os.time() - state.start
-            if message:format(elapsed) ~= message then
-              p:report({ message = message:format(os.time() - state.start) })
+            local progress_message = progress_generator()
+            if progress_message then
+              p:report({ message = progress_message })
             end
           end, function()
+            local completion_message = string.format("Completed in %ds", os.time() - invoke_state.start_time)
+            p:report({ message = completion_message })
             p:finish()
           end)
         end
       end
 
-      local BasicOpenAIPreset = openai.OpenAIPresetBuilder
-        :new()
-        :add_system_prompts({
-          { type = 'text', path = openai_system_template },
-        })
-        :add_message_prompts({
-          { type = 'text', role = 'user', path = openai_user_template },
-        })
-
-      -- Your existing configurations
-      local qwen_config = {
-        id = "qwen2.5-coder:14b-instruct-q8_0",
-        description = "Qwen 2.5 Coder 14B",
-        preset_builder = BasicOpenAIPreset:with_opts({
-          provider = openai.OpenAIProvider:new({
-            base_url = "http://localhost:11434"
-          }),
-          params = {
-            model = "qwen2.5-coder:14b-instruct-q8_0",
-            stream = true,
-            temperature = 0.7,
-            top_p = 0.9,
-            max_tokens = 8192,
-          }
-        })
-      }
-
-      local grok_config = {
-        id = "grok-beta",
-        description = "xAI Grok Beta",
-        preset_builder = BasicOpenAIPreset:with_opts({
-          provider = openai.OpenAIProvider:new({
-            api_key_name = "XAI_API_KEY",
-            base_url = "https://api.x.ai"
-          }),
-          headers = {
-            endpoint = "/v1/chat/completions",
-            extra_headers = {}
-          },
-          params = {
-            model = "grok-beta",
-            stream = true,
-            temperature = 0.7,
-            top_p = 0.9,
-            max_tokens = 131072
-          }
-        })
-      }
-
-      local gpt4o_config = {
-        id = "gpt-4o",
-        description = "OpenAI gpt-4o",
-        preset_builder = BasicOpenAIPreset:with_opts({
-          provider = openai.OpenAIProvider:new({
-            api_key_name = "OPENAI_API_KEY",
-            base_url = "https://api.openai.com"
-          }),
-          headers = {
-            endpoint = "/v1/chat/completions",
-            extra_headers = {}
-          },
-          params = {
-            model = "gpt-4o",
-            stream = true,
-            temperature = 0.7,
-            top_p = 0.9,
-            max_tokens = 8192
-          }
-        })
-      }
-
-      local claude_sonnet_config = {
-        id = "claude-3-5-sonnet",
-        description = "Anthropic Claude 3.5 Sonnet",
-        preset_builder = anthropic.AnthropicPresetBuilder
-          :new()
-          :add_system_prompts({
-            {
-              type = 'text',
-              path = anthropic_system_template,
-              cache_control = { type = 'ephemeral' },
-            },
+      -- Initialize model configurations
+      for _, model_group in pairs(model_configs) do
+        for model_key, model_info in pairs(model_group) do
+          table.insert(presets.options, {
+            id = model_info.id,
+            description = model_info.description,
+            invoke = create_enhanced_invoke(model_info),
           })
-          :add_message_prompts({
-            { type = 'text', role = 'user', path = anthropic_user_template },
-          })
-          :with_opts({
-            debug_template_path = anthropic_debug_template,
-            params = {
-              model = "claude-3-5-sonnet-20241022",
-              stream = true,
-              max_tokens = 8192,
-              temperature = 0.7,
-            },
-          })
-      }
-
-      local claude_haiku_config = {
-        id = "claude-3-5-haiku",
-        description = "Anthropic Claude 3.5 Haiku",
-        preset_builder = anthropic.AnthropicPresetBuilder
-          :new()
-          :add_system_prompts({
-            {
-              type = 'text',
-              path = anthropic_system_template,
-              cache_control = { type = 'ephemeral' },
-            },
-          })
-          :add_message_prompts({
-            { type = 'text', role = 'user', path = anthropic_user_template },
-          })
-          :with_opts({
-            debug_template_path = anthropic_debug_template,
-            params = {
-              model = "claude-3-5-haiku-20241022",
-              stream = true,
-              max_tokens = 8192,
-              temperature = 0.7,
-            },
-          })
-      }
-
-      -- Create configurations for local models
-      local configs = {}
-      for model_id, model_info in pairs(local_models) do
-        configs[model_id] = {
-          id = model_info.id,
-          description = model_info.description,
-          preset_builder = BasicOpenAIPreset:with_opts({
-            provider = openai.OpenAIProvider:new({
-              base_url = model_info.base_url
-            }),
-            params = {
-              model = model_info.id,
-              stream = true,
-              temperature = 0.7,
-              top_p = 0.9,
-              max_tokens = model_info.max_tokens,
-            }
-          })
-        }
+        end
       end
 
-      -- Combine all configurations
-      presets.options = {
-        {
-          id = qwen_config.id,
-          description = qwen_config.description,
-          preset_builder = qwen_config.preset_builder,
-          invoke = create_invoke(qwen_config)
-        },
-        {
-          id = grok_config.id,
-          description = grok_config.description,
-          preset_builder = grok_config.preset_builder,
-          invoke = create_invoke(grok_config)
-        },
-        {
-          id = gpt4o_config.id,
-          description = gpt4o_config.description,
-          preset_builder = gpt4o_config.preset_builder,
-          invoke = create_invoke(gpt4o_config)
-        },
-        {
-          id = claude_sonnet_config.id,
-          description = claude_sonnet_config.description,
-          preset_builder = claude_sonnet_config.preset_builder,
-          invoke = create_invoke(claude_sonnet_config)
-        },
-        {
-          id = claude_haiku_config.id,
-          description = claude_haiku_config.description,
-          preset_builder = claude_haiku_config.preset_builder,
-          invoke = create_invoke(claude_haiku_config)
-        }
-      }
-
-      -- Add local model configurations
-      for _, config in pairs(configs) do
-        table.insert(presets.options, {
-          id = config.id,
-          description = config.description,
-          preset_builder = config.preset_builder,
-          invoke = create_invoke(config)
-        })
-      end
-
-      -- Your existing keybindings
+      -- Set up keybindings for model switching and invocation
       vim.keymap.set({ 'n', 'v' }, '<leader>m', function()
         presets.switch_presets(presets.options)
-      end, { desc = 'Switch between LLM presets' })
+      end, { desc = 'Switch between model presets' })
 
       local function invoke_with_opts(opts)
         return function()
           local preset = presets.load_selected_preset(presets.options)
-          if preset and preset.invoke then
+          if preset then
             preset.invoke(opts)
           else
-            vim.notify('No valid preset selected', vim.log.levels.WARN)
+            vim.notify('No preset selected', vim.log.levels.WARN)
           end
         end
       end
 
       vim.keymap.set({ 'n', 'v' }, '<leader>K', invoke_with_opts { debug = true },
-        { desc = 'Send current selection to LLM (Debug Mode)' })
+        { desc = 'Invoke LLM with debug mode' })
       vim.keymap.set({ 'n', 'v' }, '<leader>k', invoke_with_opts { debug = false },
-        { desc = 'Send current selection to LLM' })
+        { desc = 'Invoke LLM for completion' })
 
+      -- Set up escape handler for LLM operations
       vim.api.nvim_set_keymap('n', '<Esc>', '', {
         noremap = true,
         silent = true,
@@ -309,6 +283,23 @@ return {
           vim.api.nvim_exec_autocmds('User', { pattern = 'LLM_Escape' })
         end,
       })
+
+      -- Setup cleanup autocmds for temporary buffers
+      local function setup_cleanup_autocmds()
+        vim.api.nvim_create_augroup('LLMCleanup', { clear = true })
+        vim.api.nvim_create_autocmd('VimLeavePre', {
+          group = 'LLMCleanup',
+          callback = function()
+            for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+              if vim.api.nvim_buf_get_option(buf, 'buftype') == 'nofile' then
+                pcall(vim.api.nvim_buf_delete, buf, { force = true })
+              end
+            end
+          end,
+        })
+      end
+
+      setup_cleanup_autocmds()
     end,
   }
 }
