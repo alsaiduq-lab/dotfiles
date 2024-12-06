@@ -71,7 +71,7 @@ return {
             { type = 'text', role = 'user', path = get_template_path('grok', 'fill_mode_user_prompt.xml.jinja') },
         })
 
-      -- Progress message generator
+    -- Progress message generator
       local function create_progress_generator()
         local thinking_messages = {
           "vibing for %ds...",
@@ -80,12 +80,18 @@ return {
           "whipping up a yappacino for %ds ... ",
           "being a chill guy for %ds...",
           "been rizzing u up for %ds ...",
+          "calculating your rizz level for %ds...",
+          "generating some swag for %ds...",
+          "creating a masterpiece for %ds...",
         }
         local progress_messages = {
           "still vibing...",
           "deadass almost done...",
           "computing...",
           "AI brain working hard ...",
+          "flexing my AI muscles...",
+          "unleashing the rizz...",
+          "wrapping up the yappacino...",
         }
         local state = {
           phase = 1,
@@ -115,7 +121,7 @@ return {
 
           return message
         end
-      end
+      end 
 
       -- Model configurations
       local model_configs = {
@@ -127,7 +133,7 @@ return {
             max_tokens = 8192,
             preset_builder = BasicQwenPreset,
             params = {
-              temperature = 0.3,
+              temperature = 0.2,
             },
           },
         },
