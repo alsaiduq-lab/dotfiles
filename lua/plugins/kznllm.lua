@@ -5,6 +5,7 @@ return {
       { 'j-hui/fidget.nvim' },
     },
     config = function(self)
+      -- Import required modules
       local presets = require('kznllm.presets.basic')
       local utils = require('kznllm.utils')
       local openai = require('kznllm.specs.openai')
@@ -12,12 +13,15 @@ return {
       local buffer_manager = require('kznllm.buffer').buffer_manager
       local progress = require('fidget.progress')
 
+      -- Define constants
       local TEMPLATE_DIR = utils.TEMPLATE_PATH
+
+      -- Define a function to get template paths
       local function get_template_path(model, filename)
         return utils.join_path({ TEMPLATE_DIR, model, filename })
       end
 
-      -- Templates for different models
+      -- Define templates for different models
       local templates = {
         openai = {
           system = get_template_path('openai', 'fill_mode_system_prompt.xml.jinja'),
@@ -35,6 +39,7 @@ return {
         },
       }
 
+      -- Define preset builders for each model
       local BasicQwenPreset = openai.OpenAIPresetBuilder
         :new()
         :add_system_prompts({
@@ -71,7 +76,7 @@ return {
             { type = 'text', role = 'user', path = get_template_path('grok', 'fill_mode_user_prompt.xml.jinja') },
         })
 
-    -- Progress message generator
+      -- Define a function to create a progress generator
       local function create_progress_generator()
         local thinking_messages = {
           "vibing for %ds...",
@@ -123,7 +128,7 @@ return {
         end
       end 
 
-      -- Model configurations
+      -- Define model configurations
       local model_configs = {
         local_models = {
           ["qwen2.5-coder:14b-instruct-q8_0"] = {
@@ -132,20 +137,32 @@ return {
             base_url = "http://localhost:11434",
             max_tokens = 8192,
             preset_builder = BasicQwenPreset,
+            api_key_name = "OPENAI_API_KEY",
             params = {
+              model = "qwen2.5-coder:14b-instruct-q8_0",
+              stream = true,
               temperature = 0.2,
+              top_p = 0.95,
+              frequency_penalty = 0,
+              presence_penalty = 0,
             },
           },
         },
         cloud_models = {
-         gpt4 = {
+          gpt4 = {
             id = "gpt-4o",
             description = "OpenAI GPT-4o",
             base_url = "https://api.openai.com",
             max_tokens = 12000,
             preset_builder = BasicOpenAIPreset,
+            api_key_name = "OPENAI_API_KEY",
             params = {
+              model = "gpt-4o",
+              stream = true,
               temperature = 0.5,
+              top_p = 0.95,
+              frequency_penalty = 0,
+              presence_penalty = 0,
             },
           },
           grok = {
@@ -155,11 +172,35 @@ return {
             api_key_name = "XAI_API_KEY",
             max_tokens = 131072,
             preset_builder = BasicGrokPreset,
+            params = {
+              model = "grok-beta",
+              stream = true,
+              temperature = 0.7,
+              top_p = 0.95,
+              frequency_penalty = 0,
+              presence_penalty = 0,
+            },
+          },
+          llama = {
+            id = "llama-3.3-70b-versatile",
+            description = "Llama 3.3 70B Versatile (Groq)",
+            base_url = "https://api.groq.com/openai/",
+            api_key_name = "GROQ_API_KEY",
+            max_tokens = 8192,
+            preset_builder = BasicOpenAIPreset,
+            params = {
+              model = "llama-3.3-70b-versatile",
+              stream = true,
+              temperature = 0.7,
+              top_p = 0.95,
+              frequency_penalty = 0,
+              presence_penalty = 0,
+            },
           },
         },
       }
 
-      -- Enhanced invoke function for each model
+      -- Define a function to create an enhanced invoke function for each model
       local function create_enhanced_invoke(config)
         local provider = openai.OpenAIProvider:new({
           base_url = config.base_url,
