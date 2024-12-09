@@ -77,33 +77,42 @@ return {
         })
 
       -- Define a function to create a progress generator
-      local function create_progress_generator()
+     local function create_progress_generator()
         local thinking_messages = {
-          "vibing for %ds...",
-          "yapping for %ds...",
-          "skidibing for %ds...",
-          "whipping up a yappacino for %ds ... ",
-          "being a chill guy for %ds...",
-          "been rizzing u up for %ds ...",
-          "calculating your rizz level for %ds...",
-          "generating some swag for %ds...",
-          "creating a masterpiece for %ds...",
+          "fr fr thinking for %ds no cap...",
+          "bussin out ideas for %ds sheesh...",
+          "ngl cooking up heat for %ds...",
+          "ong been processing for %ds fr fr...",
+          "lowkey vibing w/ the code for %ds...",
+          "no shot taking %ds to rizz this up...",
+          "finna drop some fire in %ds...",
+          "straight bussin for %ds rn...",
+          "it's giving galaxy brain for %ds...",
+          "yeet-coding for %ds bestie...",
+          "absolutely ate that for %ds...",
+          "serving code realness for %ds...",
+          "main character moment for %ds...",
+          "based processing for %ds fr fr..."
         }
         local progress_messages = {
-          "still vibing...",
-          "deadass almost done...",
-          "computing...",
-          "AI brain working hard ...",
-          "flexing my AI muscles...",
-          "unleashing the rizz...",
-          "wrapping up the yappacino...",
+          "still slaying...",
+          "no cap almost there...",
+          "on god wrapping up...",
+          "finna be done soon fr...",
+          "that's so fire oomfie...",
+          "slay pending...",
+          "it's giving excellence...",
+          "real rizz loading...",
+          "bussin loading sequence...",
+          "absolutely eating this task...",
+          "core memories loading..."
         }
         local state = {
           phase = 1,
           index = 1,
           start_time = os.time(),
           last_message_time = os.time(),
-          message_interval = 3,
+          message_interval = math.random(2, 5)
         }
 
         return function()
@@ -112,16 +121,15 @@ return {
             return nil
           end
           state.last_message_time = now
+          state.message_interval = math.random(2, 5)
 
           local time_elapsed = now - state.start_time
           local messages = state.phase == 1 and thinking_messages or progress_messages
-          local message = messages[state.index]:format(time_elapsed)
+          local message = messages[math.random(1, #messages)]:format(time_elapsed)
 
-          if state.phase == 1 and time_elapsed >= 18 then
+          if state.phase == 1 and time_elapsed >= math.random(15, 25) then
             state.phase = 2
             state.index = 1
-          else
-            state.index = (state.index % #messages) + 1
           end
 
           return message
@@ -137,7 +145,6 @@ return {
             base_url = "http://localhost:11434",
             max_tokens = 8192,
             preset_builder = BasicQwenPreset,
-            api_key_name = "OPENAI_API_KEY",
             params = {
               model = "qwen2.5-coder:14b-instruct-q8_0",
               stream = true,
