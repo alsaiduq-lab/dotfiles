@@ -1,29 +1,56 @@
--- Enable line numbers
-vim.cmd("set number")
--- Enable mouse support in all modes
-vim.cmd("set mouse=a")
--- Enable syntax highlighting
-vim.cmd("syntax enable")
--- Show command as it's being typed
-vim.cmd("set showcmd")
--- Set encoding to UTF-8
-vim.cmd("set encoding=utf-8")
--- Highlight matching brackets when cursor is on them
-vim.cmd("set showmatch")
--- Enable relative line numbers
-vim.cmd("set relativenumber")
--- Convert tabs to spaces
-vim.cmd("set expandtab")
--- Set the number of visual spaces per TAB
-vim.cmd("set tabstop=4")
--- Make 'shiftwidth' to follow 'tabstop'
-vim.cmd("set shiftwidth=0")
--- Set soft tab stop to 0, which makes it follow 'tabstop'
-vim.cmd("set softtabstop=0")
--- Auto indent new lines
-vim.cmd("set autoindent")
--- Use smart tabs
-vim.cmd("set smarttab")
--- Keymap to navigate between windows using Ctrl + h/l
-vim.keymap.set('n', '<C-h>', '<C-w>h', { desc = "Navigate to left window" })
-vim.keymap.set('n', '<C-l>', '<C-w>l', { desc = "Navigate to right window" })
+-- Basic Settings
+vim.opt.number = true
+vim.opt.mouse = "a"
+vim.opt.syntax = "enable"
+vim.opt.showcmd = true
+vim.opt.encoding = "utf-8"
+vim.opt.showmatch = true
+vim.opt.relativenumber = true
+vim.opt.expandtab = true
+vim.opt.tabstop = 4
+vim.opt.shiftwidth = 0
+vim.opt.softtabstop = 0
+vim.opt.autoindent = true
+vim.opt.smarttab = true
+
+-- Window Navigation
+vim.keymap.set("n", "<C-h>", "<C-w>h", { desc = "Navigate to left window" })
+vim.keymap.set("n", "<C-j>", "<C-w>j", { desc = "Navigate to bottom window" })
+vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Navigate to top window" })
+vim.keymap.set("n", "<C-l>", "<C-w>l", { desc = "Navigate to right window" })
+
+-- Quick Save
+vim.keymap.set("n", "<C-s>", ":w<CR>", { desc = "Quick save" })
+
+-- Buffer Navigation
+vim.keymap.set("n", "<Tab>", ":bnext<CR>", { desc = "Next buffer" })
+vim.keymap.set("n", "<S-Tab>", ":bprevious<CR>", { desc = "Previous buffer" })
+
+-- Window Management
+vim.keymap.set("n", "<leader>sv", ":vsplit<CR>", { desc = "Split vertically" })
+vim.keymap.set("n", "<leader>sh", ":split<CR>", { desc = "Split horizontally" })
+vim.keymap.set("n", "<leader>sq", ":close<CR>", { desc = "Close window" })
+
+-- Window Resizing
+vim.keymap.set("n", "<C-Up>", ":resize +2<CR>", { desc = "Increase window height" })
+vim.keymap.set("n", "<C-Down>", ":resize -2<CR>", { desc = "Decrease window height" })
+vim.keymap.set("n", "<C-Left>", ":vertical resize -2<CR>", { desc = "Decrease window width" })
+vim.keymap.set("n", "<C-Right>", ":vertical resize +2<CR>", { desc = "Increase window width" })
+
+-- Better indenting
+vim.keymap.set("v", "<", "<gv", { desc = "Indent left and reselect" })
+vim.keymap.set("v", ">", ">gv", { desc = "Indent right and reselect" })
+
+-- Move selected line / block of text in visual mode
+vim.keymap.set("x", "K", ":move '<-2<CR>gv-gv", { desc = "Move line up" })
+vim.keymap.set("x", "J", ":move '>+1<CR>gv-gv", { desc = "Move line down" })
+
+-- Better window navigation
+vim.keymap.set("n", "<C-h>", "<C-w>h", { desc = "Navigate to left window" })
+vim.keymap.set("n", "<C-j>", "<C-w>j", { desc = "Navigate to bottom window" })
+vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Navigate to top window" })
+vim.keymap.set("n", "<C-l>", "<C-w>l", { desc = "Navigate to right window" })
+
+-- Stay in indent mode after indenting
+vim.keymap.set("v", ">", ">gv", { desc = "Indent right and reselect" })
+vim.keymap.set("v", "<", "<gv", { desc = "Indent left and reselect" })
