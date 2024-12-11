@@ -6,11 +6,27 @@ return {
             inlay_hints = {
                 parameter_hints = {
                     show = true,
+                    prefix = "← ",
+                    separator = ", ",
+                    remove_colon_start = false,
+                    remove_colon_end = true,
                 },
                 type_hints = {
                     show = true,
+                    prefix = "=> ",
+                    separator = ", ",
+                    remove_colon_start = false,
+                    remove_colon_end = false,
                 },
+                label_separator = "  ",
+                max_len_align = false,
+                max_len_align_padding = 1,
+                right_align = false,
+                right_align_padding = 7,
+                highlight = "Comment",
             },
+            enabled_at_startup = true,
+            debug_mode = false,
         })
         vim.api.nvim_create_autocmd("LspAttach", {
             callback = function(args)

@@ -1,3 +1,6 @@
+---@diagnostic disable: undefined-field
+_G.vim = _G.vim or vim
+
 return {
 	"mhartington/formatter.nvim",
 	event = "BufWritePre",
@@ -56,13 +59,23 @@ return {
 				markdown = prettier_config("markdown"),
 				python = {
 					function()
-						if not formatter_exists("black") then
-							vim.notify("black not found. Please install it!", vim.log.levels.WARN)
+						if not formatter_exists("autopep8") then
+							vim.notify("autopep8 not found. Please install it!", vim.log.levels.WARN)
 							return nil
 						end
 						return {
-							exe = "black",
-							args = { "--quiet", "--fast", "-" },
+							exe = "autopep8",
+							args = {
+								"--aggressive",
+								"--aggressive",
+								"--max-line-length",
+								"120",
+								"--experimental",
+								"--in-place",
+								"--ignore",
+								"E226,E24,W50,W690,E731",
+								"-",
+							},
 							stdin = true,
 						}
 					end,
@@ -209,7 +222,7 @@ return {
 			pattern = "*",
 			callback = function()
 				if not vim.b.disable_autoformat then
-					pcall(vim.cmd, "FormatWrite")
+					vim.cmd.Format({})
 				end
 			end,
 			desc = "Format on save",

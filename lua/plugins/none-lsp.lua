@@ -1,58 +1,97 @@
 return {
-    "nvimtools/none-ls.nvim",
-    event = { "BufReadPre", "BufNewFile" },
-    dependencies = { "nvim-lua/plenary.nvim" },
-    config = function()
-        -- Initialize none-ls (null-ls) for linting and formatting
-        local null_ls = require("null-ls")
+	"nvimtools/none-ls.nvim",
+	event = { "BufReadPre", "BufNewFile" },
+	dependencies = {
+		"nvim-lua/plenary.nvim",
+		"mason.nvim",
+	},
+	config = function()
+		local null_ls = require("null-ls")
 
-        -- Define formatting and linting sources for different languages
-        local sources = {
-            -- JavaScript/TypeScript: Prettier for consistent code formatting
-            null_ls.builtins.formatting.prettier.with({
-                filetypes = { "javascript", "typescript", "css", "html", "json", "yaml", "markdown" }
-            }),
+		local function find_venv()
+			local launch_venv = os.getenv("VIRTUAL_ENV")
+			if
+				launch_venv
+				and (
+					vim.fn.isdirectory(launch_venv .. "/bin") == 1
+					or vim.fn.isdirectory(launch_venv .. "\\Scripts") == 1
+				)
+			then
+				return launch_venv .. (vim.fn.has("win32") == 1 and "\\Scripts" or "/bin")
+			end
 
-            -- Python formatting and linting tools
-            null_ls.builtins.formatting.black, -- Code formatter
-            null_ls.builtins.formatting.isort, -- Import sorter
-            null_ls.builtins.diagnostics.pylint.with({
-                prefer_local = ".venv/bin"     -- Use project's virtual environment
-            }),
-            null_ls.builtins.diagnostics.mypy, -- Static type checker
+			local project_venv_paths = {
+				".venv/bin",
+				"venv/bin",
+				"env/bin",
+				".venv\\Scripts",
+				"venv\\Scripts",
+				"env\\Scripts",
+			}
 
-            -- Lua formatting
-            null_ls.builtins.formatting.stylua, -- Modern Lua formatter
+			local current_dir = vim.fn.getcwd()
+			for _, path in ipairs(project_venv_paths) do
+				local full_path = current_dir .. "/" .. path
+				if vim.fn.isdirectory(full_path) == 1 then
+					return full_path:gsub("/", "\\")
+				end
+			end
 
-            -- Go formatting tools
-            null_ls.builtins.formatting.gofmt,     -- Standard Go formatter
-            null_ls.builtins.formatting.goimports, -- Manages Go imports
+			return nil
+		end
 
-            -- Shell script formatting
-            null_ls.builtins.formatting.shfmt, -- Shell script formatter
-        }
+		local sources = {
+			null_ls.builtins.formatting.prettier.with({
+				filetypes = { "javascript", "typescript", "css", "html", "json", "yaml", "markdown" },
+			}),
 
-        -- Setup automatic formatting on file save
-        local function format_on_save(client, bufnr)
-            -- Check if the LSP client supports formatting
-            if client.supports_method("textDocument/formatting") then
-                -- Create an autocommand for the current buffer
-                vim.api.nvim_create_autocmd("BufWritePre", {
-                    group = vim.api.nvim_create_augroup("FormatOnSave" .. bufnr, { clear = true }),
-                    buffer = bufnr,
-                    callback = function()
-                        -- Format the buffer before saving
-                        vim.lsp.buf.format({ bufnr = bufnr })
-                    end,
-                })
-            end
-        end
+			null_ls.builtins.formatting.black,
+			null_ls.builtins.formatting.isort,
+			null_ls.builtins.diagnostics.pylint.with({
+				prefer_local = find_venv(),
+			}),
+			null_ls.builtins.diagnostics.mypy.with({
+				prefer_local = find_venv(),
+			}),
 
-        -- Configure none-ls with the specified sources and format-on-save
-        null_ls.setup({
-            sources = sources,
-            on_attach = format_on_save,
-            debug = true -- Enable debug logging
-        })
-    end,
+			null_ls.builtins.formatting.stylua,
+
+			null_ls.builtins.formatting.gofmt,
+			null_ls.builtins.formatting.goimports,
+
+			null_ls.builtins.formatting.shfmt,
+		}
+
+		if vim.fn.has("win32") ~= 1 then
+			table.insert(sources, null_ls.builtins.diagnostics.shellcheck)
+		end
+
+		local function on_attach(client, bufnr)
+			if client.supports_method("textDocument/formatting") then
+				vim.api.nvim_create_autocmd("BufWritePre", {
+					group = vim.api.nvim_create_augroup("FormatOnSave" .. bufnr, { clear = true }),
+					buffer = bufnr,
+					callback = function()
+						vim.lsp.buf.format({ bufnr = bufnr })
+					end,
+				})
+			end
+
+			if client.supports_method("textDocument/publishDiagnostics") then
+				vim.lsp.handlers["textDocument/publishDiagnostics"] =
+					vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
+						underline = true,
+						virtual_text = { spacing = 4, prefix = "●" },
+						signs = true,
+						update_in_insert = false,
+					})
+			end
+		end
+
+		null_ls.setup({
+			sources = sources,
+			on_attach = on_attach,
+			debug = true,
+		})
+	end,
 }

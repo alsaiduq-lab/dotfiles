@@ -6,30 +6,42 @@ return {
 		if not status_ok then
 			return
 		end
-
 		toggleterm.setup({
 			size = function(term)
 				if term.direction == "horizontal" then
-					return vim.o.lines * 0.35
+					return vim.o.lines * 0.4
 				elseif term.direction == "vertical" then
-					return vim.o.columns * 0.5
+					return vim.o.columns * 0.4
 				end
 				return 20
 			end,
 			open_mapping = [[<c-\>]],
 			shade_filetypes = {},
 			shade_terminals = true,
-			shading_factor = 2,
+			shading_factor = 1,
 			start_in_insert = true,
 			insert_mappings = true,
 			terminal_mappings = true,
 			persist_size = true,
 			direction = "float",
 			close_on_exit = true,
-			shell = vim.o.shell .. " -l",
+			shell = vim.o.shell,
 			float_opts = {
-				border = "curved",
-				winblend = 3,
+				border = "single",
+				width = function()
+					return math.floor(vim.o.columns * 0.85)
+				end,
+				height = function()
+					return math.floor(vim.o.lines * 0.85)
+				end,
+				winblend = 0,
+				title_pos = "center",
+			},
+			winbar = {
+				enabled = true,
+				name_formatter = function(term)
+					return term.name
+				end,
 			},
 			highlights = {
 				NormalFloat = {
@@ -47,15 +59,23 @@ return {
 			hidden = true,
 			direction = "float",
 			float_opts = {
-				border = "double",
+				border = "single",
+				width = function()
+					return math.floor(vim.o.columns * 0.9)
+				end,
+				height = function()
+					return math.floor(vim.o.lines * 0.9)
+				end,
 			},
 		})
 
-		function _LAZYGIT_TOGGLE()
+		-- Fixed function name
+		local function _LAZYGIT_TOGGLE()
 			lazygit:toggle()
 		end
 
-		local function _set_terminal_keymaps()
+		-- Fixed function name
+		local function set_terminal_keymaps()
 			local opts = { buffer = 0 }
 			vim.keymap.set("t", "<esc>", [[<C-\><C-n>]], opts)
 			vim.keymap.set("t", "<C-h>", [[<Cmd>wincmd h<CR>]], opts)
@@ -66,7 +86,7 @@ return {
 
 		vim.api.nvim_create_autocmd("TermOpen", {
 			pattern = "term://*",
-			callback = _set_terminal_keymaps,
+			callback = set_terminal_keymaps,
 		})
 
 		local opts = { noremap = true, silent = true }
@@ -94,11 +114,9 @@ return {
 			":ToggleTerm direction=float<CR>",
 			vim.tbl_extend("force", opts, { desc = "Toggle Float Terminal" })
 		)
-		vim.keymap.set(
-			"n",
-			"<leader>tg",
-			"<cmd>lua _LAZYGIT_TOGGLE()<CR>",
-			vim.tbl_extend("force", opts, { desc = "Toggle Lazygit" })
-		)
+
+		vim.keymap.set("n", "<leader>tg", function()
+			_LAZYGIT_TOGGLE()
+		end, vim.tbl_extend("force", opts, { desc = "Toggle Lazygit" }))
 	end,
 }
