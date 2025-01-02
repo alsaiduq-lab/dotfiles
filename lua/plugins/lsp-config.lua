@@ -2,31 +2,115 @@ _G.vim = vim
 return {
 	{
 		"hrsh7th/nvim-cmp",
-		event = { "InsertEnter", "CmdlineEnter" },
+		event = "InsertEnter",
 		dependencies = {
 			"hrsh7th/cmp-nvim-lsp",
+			"hrsh7th/cmp-buffer",
+			"hrsh7th/cmp-path",
+			"saadparwaiz1/cmp_luasnip",
+			"L3MON4D3/LuaSnip",
+			"rafamadriz/friendly-snippets",
 			"onsails/lspkind.nvim",
 		},
 		config = function()
 			local cmp = require("cmp")
+			local luasnip = require("luasnip")
 			local lspkind = require("lspkind")
+			require("luasnip.loaders.from_vscode").lazy_load()
+
+			local has_words_before = function()
+				unpack = unpack or table.unpack
+				local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+				return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match("%s") == nil
+			end
+
 			cmp.setup({
+				snippet = {
+					expand = function(args)
+						luasnip.lsp_expand(args.body)
+					end,
+				},
+				mapping = {
+					["<C-b>"] = cmp.mapping.scroll_docs(-4),
+					["<C-f>"] = cmp.mapping.scroll_docs(4),
+					["<C-Space>"] = cmp.mapping.complete(),
+					["<C-e>"] = cmp.mapping.abort(),
+					["<CR>"] = cmp.mapping.confirm({ select = true }),
+					["<Tab>"] = cmp.mapping(function(fallback)
+						if cmp.visible() then
+							cmp.select_next_item()
+						elseif luasnip.expand_or_jumpable() then
+							luasnip.expand_or_jump()
+						elseif has_words_before() then
+							cmp.complete()
+						else
+							fallback()
+						end
+					end, { "i", "s" }),
+					["<S-Tab>"] = cmp.mapping(function(fallback)
+						if cmp.visible() then
+							cmp.select_prev_item()
+						elseif luasnip.jumpable(-1) then
+							luasnip.jump(-1)
+						else
+							fallback()
+						end
+					end, { "i", "s" }),
+					["<C-h>"] = cmp.mapping(function(fallback)
+						if cmp.visible() then
+							cmp.select_prev_item()
+						elseif luasnip.jumpable(-1) then
+							luasnip.jump(-1)
+						else
+							fallback()
+						end
+					end, { "i", "s" }),
+				},
+				sources = {
+					{ name = "nvim_lsp" },
+					{ name = "luasnip" },
+					{ name = "buffer" },
+					{ name = "path" },
+				},
 				formatting = {
 					format = lspkind.cmp_format({
 						mode = "symbol_text",
 						maxwidth = 50,
 						ellipsis_char = "...",
+						menu = {
+							nvim_lsp = "[LSP]",
+							luasnip = "[Snippet]",
+							buffer = "[Buffer]",
+							path = "[Path]",
+						},
 					}),
 				},
+				completion = {
+					completeopt = "menu,menuone,noselect",
+				},
+			})
+
+			vim.api.nvim_set_keymap("i", "<S-Tab>", "<C-p>", { noremap = true, silent = true })
+			vim.api.nvim_set_keymap("i", "<C-h>", "<C-p>", { noremap = true, silent = true })
+			vim.cmd([[
+				inoremap <S-Tab> <C-p>
+				inoremap <C-h> <C-p>
+			]])
+
+			cmp.setup.cmdline("/", {
+				mapping = cmp.mapping.preset.cmdline(),
 				sources = {
-					{ name = "nvim_lsp" },
+					{ name = "buffer" },
 				},
-				mapping = cmp.mapping.preset.insert({}),
-				snippet = {
-					expand = function(args)
-						vim.snippet.expand(args.body)
-					end,
-				},
+			})
+
+			cmp.setup.cmdline(":", {
+				mapping = cmp.mapping.preset.cmdline(),
+				sources = cmp.config.sources({
+					{ name = "path" },
+				}, {
+					{ name = "cmdline" },
+				}),
 			})
 		end,
 	},
@@ -167,98 +251,8 @@ return {
 						vim.lsp.buf.format({ async = true })
 					end, opts)
 
-					local diagnostic_augroup = vim.api.nvim_create_augroup("DiagnosticCursor", { clear = true })
-					vim.api.nvim_create_autocmd("CursorHold", {
-						group = diagnostic_augroup,
-						buffer = event.buf,
-						callback = function()
-							local diagnostics = vim.diagnostic.get(0, { lnum = vim.api.nvim_win_get_cursor(0)[1] - 1 })
-							if #diagnostics > 0 and diagnostics[1].severity <= vim.diagnostic.severity.ERROR then
-								vim.defer_fn(function()
-									vim.lsp.buf.code_action()
-								end, 100)
-							end
-						end,
-					})
+					local diagnostic_augroup = vim.api.nvim_create_augroup("Diagnostic", { clear = true })
 				end,
-			})
-
-			vim.api.nvim_create_autocmd("FileType", {
-				pattern = { "typescript", "javascript" },
-				callback = function(ev)
-					if vim.fn.filereadable(vim.fn.getcwd() .. "/deno.json") == 1 then
-						if not vim.lsp.get_clients({ name = "denols" })[1] then
-							lspconfig.denols.setup({
-								capabilities = capabilities,
-								root_dir = lspconfig.util.root_pattern("deno.json", "deno.jsonc", "deps.ts"),
-								init_options = {
-									enable = true,
-									lint = true,
-									unstable = true,
-									suggest = {
-										imports = {
-											hosts = {
-												["https://deno.land"] = true,
-											},
-										},
-									},
-								},
-								settings = {
-									deno = {
-										enable = true,
-										lint = true,
-										unstable = true,
-										codeLens = {
-											implementations = true,
-											references = true,
-										},
-									},
-								},
-							})
-							vim.cmd("LspStart denols")
-						end
-					end
-				end,
-			})
-
-			local servers = {
-				lua_ls = {
-					capabilities = capabilities,
-					settings = {
-						Lua = {
-							diagnostics = { globals = { "vim" } },
-							workspace = { library = vim.api.nvim_get_runtime_file("", true) },
-						},
-					},
-				},
-				clangd = { capabilities = capabilities },
-				cssls = { capabilities = capabilities },
-				html = { capabilities = capabilities },
-				pyright = { capabilities = capabilities },
-				gopls = { capabilities = capabilities },
-			}
-
-			for server, config in pairs(servers) do
-				lspconfig[server].setup(config)
-			end
-		end,
-	},
-	{
-		"nvimdev/lspsaga.nvim",
-		event = "BufRead",
-		dependencies = { "neovim/nvim-lspconfig" },
-		config = function()
-			require("lspsaga").setup({
-				ui = {
-					border = "rounded",
-				},
-				lightbulb = {
-					enable = true,
-					sign = true,
-				},
-				code_action = {
-					show_server_name = true,
-				},
 			})
 		end,
 	},

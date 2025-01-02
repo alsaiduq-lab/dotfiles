@@ -1,6 +1,7 @@
 {
     "diagnostics.globals": [
         "vim",
-        "git_staged"
+        "git_staged",
+        "stdin"
     ]
 }

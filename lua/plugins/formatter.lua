@@ -1,240 +1,92 @@
----@diagnostic disable: undefined-field
-_G.vim = _G.vim or vim
-
+--@diagnostic disable: undefined-field
 return {
 	"mhartington/formatter.nvim",
 	event = "BufWritePre",
 	opts = {},
 	config = function()
-		local util = require("formatter.util")
-
-		local function formatter_exists(formatter)
-			return vim.fn.executable(formatter) == 1
-		end
-
-		local function prettier_config(parser)
-			return function()
-				if not formatter_exists("prettier") then
-					vim.notify("prettier not found. Please install it!", vim.log.levels.WARN)
-					return nil
-				end
-				return {
-					exe = "prettier",
-					args = {
-						"--stdin-filepath",
-						util.escape_path(util.get_current_buffer_file_path()),
-						parser and "--parser" or nil,
-						parser,
-						"--single-quote",
-						"--jsx-single-quote",
-					},
-					stdin = true,
-					try_node_modules = true,
-				}
+		-- Notification Function
+		local function notify(msg, level)
+			local has_notify, nvim_notify = pcall(require, "notify")
+			if has_notify then
+				nvim_notify(msg, level, {
+					title = "Formatter",
+					timeout = 1000,
+				})
+			else
+				print(msg)
 			end
 		end
 
+		-- Define the formatter setup
 		require("formatter").setup({
 			logging = true,
 			log_level = vim.log.levels.WARN,
 			filetype = {
-				lua = {
-					function()
-						if not formatter_exists("stylua") then
-							vim.notify("stylua not found. Please install it!", vim.log.levels.WARN)
-							return nil
-						end
-						return require("formatter.filetypes.lua").stylua
-					end,
-				},
-				javascript = prettier_config(),
-				typescript = prettier_config(),
-				javascriptreact = prettier_config(),
-				typescriptreact = prettier_config(),
-				json = prettier_config("json"),
-				yaml = prettier_config("yaml"),
-				html = prettier_config("html"),
-				css = prettier_config("css"),
-				scss = prettier_config("scss"),
-				markdown = prettier_config("markdown"),
+				lua = { require("formatter.filetypes.lua").stylua },
 				python = {
-					function()
-						if not formatter_exists("autopep8") then
-							vim.notify("autopep8 not found. Please install it!", vim.log.levels.WARN)
-							return nil
-						end
-						return {
-							exe = "autopep8",
-							args = {
-								"--aggressive",
-								"--aggressive",
-								"--max-line-length",
-								"120",
-								"--experimental",
-								"--in-place",
-								"--ignore",
-								"E226,E24,W50,W690,E731",
-								"-",
-							},
-							stdin = true,
-						}
-					end,
+					{
+						-- Black Formatter
+						exe = "black",
+						args = {
+							"--quiet",
+							"--stdin-filename",
+							vim.fn.shellescape(vim.fn.expand("%:t")),
+							"--line-length",
+							"100", -- Adjust as needed
+							"-", -- Read from stdin
+						},
+						stdin = true,
+					},
 				},
-				rust = {
-					function()
-						if not formatter_exists("rustfmt") then
-							vim.notify("rustfmt not found. Please install it!", vim.log.levels.WARN)
-							return nil
-						end
-						return {
-							exe = "rustfmt",
-							args = { "--edition", "2021" },
-							stdin = true,
-						}
-					end,
-				},
-				go = {
-					function()
-						if not formatter_exists("gofmt") then
-							vim.notify("gofmt not found. Please install it!", vim.log.levels.WARN)
-							return nil
-						end
-						return {
-							exe = "gofmt",
-							stdin = true,
-						}
-					end,
-				},
-				cpp = {
-					function()
-						if not formatter_exists("clang-format") then
-							vim.notify("clang-format not found. Please install it!", vim.log.levels.WARN)
-							return nil
-						end
-						return {
-							exe = "clang-format",
-							args = {
-								"--assume-filename",
-								util.escape_path(util.get_current_buffer_file_path()),
-								"--style=Google",
-							},
-							stdin = true,
-						}
-					end,
-				},
-				c = {
-					function()
-						if not formatter_exists("clang-format") then
-							vim.notify("clang-format not found. Please install it!", vim.log.levels.WARN)
-							return nil
-						end
-						return {
-							exe = "clang-format",
-							args = {
-								"--assume-filename",
-								util.escape_path(util.get_current_buffer_file_path()),
-								"--style=Google",
-							},
-							stdin = true,
-						}
-					end,
-				},
-				java = {
-					function()
-						if not formatter_exists("google-java-format") then
-							vim.notify("google-java-format not found. Please install it!", vim.log.levels.WARN)
-							return nil
-						end
-						return {
-							exe = "google-java-format",
-							args = {
-								"--aosp",
-								util.escape_path(util.get_current_buffer_file_path()),
-							},
-							stdin = true,
-						}
-					end,
-				},
-				php = {
-					function()
-						if not formatter_exists("php-cs-fixer") then
-							vim.notify("php-cs-fixer not found. Please install it!", vim.log.levels.WARN)
-							return nil
-						end
-						return {
-							exe = "php-cs-fixer",
-							args = { "fix", "--rules=@PSR2", "-" },
-							stdin = true,
-						}
-					end,
-				},
-				ruby = {
-					function()
-						if not formatter_exists("rubocop") then
-							vim.notify("rubocop not found. Please install it!", vim.log.levels.WARN)
-							return nil
-						end
-						return {
-							exe = "rubocop",
-							args = {
-								"--auto-correct",
-								"--stdin",
-								util.escape_path(util.get_current_buffer_file_path()),
-								"--format",
-								"quiet",
-								"--stderr",
-							},
-							stdin = true,
-						}
-					end,
-				},
-				sh = {
-					function()
-						if not formatter_exists("shfmt") then
-							vim.notify("shfmt not found. Please install it!", vim.log.levels.WARN)
-							return nil
-						end
-						return {
-							exe = "shfmt",
-							args = { "-i", "2", "-bn", "-ci", "-sr" },
-							stdin = true,
-						}
-					end,
-				},
-				["*"] = {
-					function()
-						return {
-							exe = "vim",
-							args = {},
-							stdin = false,
-							transform = function(text)
-								return text:gsub("%s+$", "")
-							end,
-						}
-					end,
-				},
+				javascript = { require("formatter.filetypes.javascript").prettier },
+				typescript = { require("formatter.filetypes.typescript").prettier },
+				javascriptreact = { require("formatter.filetypes.javascriptreact").prettier },
+				typescriptreact = { require("formatter.filetypes.typescriptreact").prettier },
+				json = { require("formatter.filetypes.json").prettier },
+				html = { require("formatter.filetypes.html").prettier },
+				css = { require("formatter.filetypes.css").prettier },
+				scss = { require("formatter.filetypes.css").prettier },
+				markdown = { require("formatter.filetypes.markdown").prettier },
+				yaml = { require("formatter.filetypes.yaml").yamlfmt },
+				rust = { require("formatter.filetypes.rust").rustfmt },
+				go = { require("formatter.filetypes.go").gofmt },
+				["*"] = { require("formatter.filetypes.any").remove_trailing_whitespace },
 			},
 		})
 
-		local format_group = vim.api.nvim_create_augroup("FormatAutogroup", { clear = true })
-		vim.api.nvim_create_autocmd("BufWritePre", {
-			group = format_group,
-			pattern = "*",
+		-- Formatting Function
+		local format = require("formatter.format")
+		local function format_buffer()
+			local bufnr = vim.api.nvim_get_current_buf()
+			if not vim.api.nvim_buf_is_valid(bufnr) then
+				return false
+			end
+
+			local win_view = vim.fn.winsaveview()
+			local success, err = pcall(format.format)
+			if success then
+				vim.fn.winrestview(win_view)
+				vim.defer_fn(function()
+					notify("Formatted file successfully", vim.log.levels.INFO)
+				end, 100)
+			else
+				notify("Format failed: " .. tostring(err), vim.log.levels.ERROR)
+			end
+		end
+
+		-- Keybinding for Manual Formatting (Optional)
+		vim.api.nvim_set_keymap("n", "<leader>fo", ":lua format_buffer()<CR>", { noremap = true, silent = true })
+
+		-- Optional: Auto-format on paste using autocmd
+		vim.api.nvim_create_autocmd("TextYankPost", {
+			group = vim.api.nvim_create_augroup("AutoFormatOnPaste", { clear = true }),
 			callback = function()
-				if not vim.b.disable_autoformat then
-					vim.cmd.Format({})
+				-- Check if the buffer's filetype is supported
+				local ft = vim.bo.filetype
+				if require("formatter.filetypes")[ft] then
+					format_buffer()
 				end
 			end,
-			desc = "Format on save",
 		})
-
-		vim.api.nvim_create_user_command("FormatToggle", function()
-			vim.b.disable_autoformat = not vim.b.disable_autoformat
-			if vim.b.disable_autoformat then
-				vim.notify("Autoformat disabled", vim.log.levels.INFO)
-			else
-				vim.notify("Autoformat enabled", vim.log.levels.INFO)
-			end
-		end, { desc = "Toggle autoformat on save" })
 	end,
 }

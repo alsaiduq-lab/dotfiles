@@ -10,21 +10,10 @@ return {
 			interval = 60,
 			maxfiles = 5,
 		},
-		cleanup = {
-			enabled = true,
-			days = 7,
-		},
 	},
 	config = function(_, opts)
 		require("persistence").setup(opts)
-
-		local cleanup_timer = vim.loop.new_timer()
-		cleanup_timer:start(0, 24 * 60 * 60 * 1000, function()
-			vim.schedule(function()
-				require("persistence").cleanup()
-			end)
-		end)
-
+		-- Set up autosave timer
 		local autosave_timer = vim.loop.new_timer()
 		autosave_timer:start(0, opts.autosave.interval * 1000, function()
 			if opts.autosave.enabled then

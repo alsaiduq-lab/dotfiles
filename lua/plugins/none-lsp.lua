@@ -6,7 +6,7 @@ return {
 		"mason.nvim",
 	},
 	config = function()
-		local null_ls = require("null-ls")
+		local none_ls = require("none-ls")
 
 		local function find_venv()
 			local launch_venv = os.getenv("VIRTUAL_ENV")
@@ -41,29 +41,29 @@ return {
 		end
 
 		local sources = {
-			null_ls.builtins.formatting.prettier.with({
+			none_ls.builtins.formatting.prettier.with({
 				filetypes = { "javascript", "typescript", "css", "html", "json", "yaml", "markdown" },
 			}),
 
-			null_ls.builtins.formatting.black,
-			null_ls.builtins.formatting.isort,
-			null_ls.builtins.diagnostics.pylint.with({
+			none_ls.builtins.formatting.black,
+			none_ls.builtins.formatting.isort,
+			none_ls.builtins.diagnostics.pylint.with({
 				prefer_local = find_venv(),
 			}),
-			null_ls.builtins.diagnostics.mypy.with({
+			none_ls.builtins.diagnostics.mypy.with({
 				prefer_local = find_venv(),
 			}),
 
-			null_ls.builtins.formatting.stylua,
+			none_ls.builtins.formatting.stylua,
 
-			null_ls.builtins.formatting.gofmt,
-			null_ls.builtins.formatting.goimports,
+			none_ls.builtins.formatting.gofmt,
+			none_ls.builtins.formatting.goimports,
 
-			null_ls.builtins.formatting.shfmt,
+			none_ls.builtins.formatting.shfmt,
 		}
 
 		if vim.fn.has("win32") ~= 1 then
-			table.insert(sources, null_ls.builtins.diagnostics.shellcheck)
+			table.insert(sources, none_ls.builtins.diagnostics.shellcheck)
 		end
 
 		local function on_attach(client, bufnr)
@@ -88,7 +88,7 @@ return {
 			end
 		end
 
-		null_ls.setup({
+		none_ls.setup({
 			sources = sources,
 			on_attach = on_attach,
 			debug = true,

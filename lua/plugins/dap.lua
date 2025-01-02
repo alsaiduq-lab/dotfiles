@@ -12,17 +12,7 @@ return {
 		"stevearc/dressing.nvim",
 		"folke/neodev.nvim",
 	},
-	event = "VeryLazy",
-	ft = {
-		"python",
-		"go",
-		"javascript",
-		"typescript",
-		"c",
-		"cpp",
-		"rust",
-		"lua",
-	},
+	lazy = false,
 	config = function()
 		vim.schedule(function()
 			local dap = require("dap")
@@ -64,6 +54,24 @@ return {
 				end,
 			})
 
+			vim.api.nvim_create_autocmd("FileType", {
+				pattern = "lua",
+				callback = function()
+					dap.configurations.lua = {
+						{
+							type = "nlua",
+							request = "attach",
+							name = "Attach to running Neovim instance",
+						},
+					}
+
+					dap.adapters.nlua = function(callback, config)
+						callback({ type = "server", host = config.host or "127.0.0.1", port = config.port or 8086 })
+					end
+					notify_dap("Lua debugger configured", "info")
+				end,
+			})
+
 			require("neodev").setup({
 				library = { plugins = { "nvim-dap-ui" }, types = true },
 			})
@@ -90,6 +98,7 @@ return {
 					}
 
 					dap.configurations.typescript = dap.configurations.javascript
+					notify_dap("JavaScript/TypeScript debugger configured", "info")
 				end,
 			})
 
@@ -124,6 +133,7 @@ return {
 
 					dap.configurations.c = dap.configurations.cpp
 					dap.configurations.rust = dap.configurations.cpp
+					notify_dap("C/C++/Rust debugger configured", "info")
 				end,
 			})
 
@@ -195,68 +205,44 @@ return {
 				virt_text_win_col = nil,
 			})
 
-			local wk = require("which-key")
-			wk.register({
-				["<F5>"] = { dap.continue, "DAP Continue" },
-				["<F10>"] = { dap.step_over, "DAP Step Over" },
-				["<F11>"] = { dap.step_into, "DAP Step Into" },
-				["<F12>"] = { dap.step_out, "DAP Step Out" },
-				["<leader>d"] = {
-					name = "+debug",
-					b = { dap.toggle_breakpoint, "Toggle Breakpoint" },
-					B = {
-						function()
-							dap.set_breakpoint(vim.fn.input({
-								prompt = "Breakpoint condition: ",
-								completion = "expression",
-							}))
-						end,
-						"Conditional Breakpoint",
-					},
-					l = {
-						function()
-							dap.set_breakpoint(
-								nil,
-								nil,
-								vim.fn.input({
-									prompt = "Log point message: ",
-									completion = "expression",
-								})
-							)
-						end,
-						"Log Point",
-					},
-					r = { dap.repl.toggle, "Toggle REPL" },
-					L = { dap.run_last, "Run Last" },
-					h = {
-						function()
-							require("dap.ui.widgets").hover()
-							notify_dap("Showing debug info", "info")
-						end,
-						"Hover",
-					},
-					p = {
-						function()
-							require("dap.ui.widgets").preview()
-						end,
-						"Preview",
-					},
-					f = {
-						function()
-							local widgets = require("dap.ui.widgets")
-							widgets.centered_float(widgets.frames)
-						end,
-						"Stack Frames",
-					},
-					s = {
-						function()
-							local widgets = require("dap.ui.widgets")
-							widgets.centered_float(widgets.scopes)
-						end,
-						"Scopes",
-					},
-				},
-			})
+			vim.keymap.set("n", "<F5>", dap.continue, { desc = "DAP Continue" })
+			vim.keymap.set("n", "<F10>", dap.step_over, { desc = "DAP Step Over" })
+			vim.keymap.set("n", "<F11>", dap.step_into, { desc = "DAP Step Into" })
+			vim.keymap.set("n", "<F12>", dap.step_out, { desc = "DAP Step Out" })
+			vim.keymap.set("n", "<leader>db", dap.toggle_breakpoint, { desc = "Toggle Breakpoint" })
+			vim.keymap.set("n", "<leader>dB", function()
+				dap.set_breakpoint(vim.fn.input({
+					prompt = "Breakpoint condition: ",
+					completion = "expression",
+				}))
+			end, { desc = "Conditional Breakpoint" })
+			vim.keymap.set("n", "<leader>dl", function()
+				dap.set_breakpoint(
+					nil,
+					nil,
+					vim.fn.input({
+						prompt = "Log point message: ",
+						completion = "expression",
+					})
+				)
+			end, { desc = "Log Point" })
+			vim.keymap.set("n", "<leader>dr", dap.repl.toggle, { desc = "Toggle REPL" })
+			vim.keymap.set("n", "<leader>dL", dap.run_last, { desc = "Run Last" })
+			vim.keymap.set("n", "<leader>dh", function()
+				require("dap.ui.widgets").hover()
+				notify_dap("Showing debug info", "info")
+			end, { desc = "Hover" })
+			vim.keymap.set("n", "<leader>dp", function()
+				require("dap.ui.widgets").preview()
+			end, { desc = "Preview" })
+			vim.keymap.set("n", "<leader>df", function()
+				local widgets = require("dap.ui.widgets")
+				widgets.centered_float(widgets.frames)
+			end, { desc = "Stack Frames" })
+			vim.keymap.set("n", "<leader>ds", function()
+				local widgets = require("dap.ui.widgets")
+				widgets.centered_float(widgets.scopes)
+			end, { desc = "Scopes" })
 		end)
 	end,
 }

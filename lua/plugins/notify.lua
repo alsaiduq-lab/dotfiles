@@ -40,6 +40,15 @@ return {
       highlight NotifyTRACEBody guibg=NONE guifg=#c0caf5
 ]])
 
+		-- Create vim commands for the demo functions
+		vim.api.nvim_create_user_command("NotifyDemo", function()
+			demo_notify()
+		end, {})
+
+		vim.api.nvim_create_user_command("NotifyMarkdownDemo", function()
+			markdown_notify()
+		end, {})
+
 		local function demo_notify()
 			local plugin = "Sheeeesh Plugin"
 			notify("bruh moment fr fr.\nEverything's bussin't! 💀", "error", {
@@ -92,3 +101,9 @@ return {
 		"nvim-telescope/telescope.nvim",
 	},
 }
+
+
+
+
+
+

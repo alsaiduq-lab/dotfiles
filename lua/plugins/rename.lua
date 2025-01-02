@@ -15,7 +15,8 @@ return {
 			-- Gets current word under cursor as default name
 			-- Opens input prompt with current name pre-filled
 			-- On confirmation, executes IncRename command with new name
-			-- Shows live preview of all rename changes before applying
+			-- only works for variables
+            -- Shows live preview of all rename changes before applying
 			vim.keymap.set("n", "<leader>rn", function()
 				local curr_name = vim.fn.expand("<cword>")
 				vim.ui.input({ prompt = "New name: ", default = curr_name }, function(new_name)
