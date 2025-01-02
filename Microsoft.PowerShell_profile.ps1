@@ -34,6 +34,9 @@ $ErrorActionPreference = 'Continue'
 $env:VIRTUAL_ENV_DISABLE_PROMPT = "1"
 $env:MANPAGER = "less -R"
 
+$env:POWERSHELL_UPDATECHECK = "Off"
+$env:GIT_OPTIONAL_LOCKS = "0"
+
 $LocalBin = Join-Path $HOME ".local\bin"
 $CargoBin = Join-Path $HOME ".cargo\bin"
 
@@ -98,97 +101,6 @@ Set-PSReadLineKeyHandler -Key Ctrl+Alt+DownArrow -Function NextHistory
 #
 #
 
-# First, define the function with a different name
-function Invoke-WebRequestWrapper {
-    [CmdletBinding()]
-    param(
-        [Parameter(ValueFromRemainingArguments=$true)]
-        [string[]]$Arguments
-    )
-    
-    # Initialize parameters
-    $params = @{}
-    $uri = $null
-    $headers = @{}
-    $body = $null
-    $method = 'GET'
-    
-    # Combine arguments that were split by spaces within quotes
-    $combinedArgs = [System.Collections.ArrayList]@()
-    $tempArg = ""
-    $inQuotes = $false
-    
-    foreach ($arg in $Arguments) {
-        if ($arg.StartsWith('"') -and -not $arg.EndsWith('"')) {
-            $inQuotes = $true
-            $tempArg = $arg
-        }
-        elseif ($inQuotes) {
-            $tempArg += " $arg"
-            if ($arg.EndsWith('"')) {
-                $inQuotes = $false
-                $combinedArgs.Add($tempArg.Trim('"')) | Out-Null
-                $tempArg = ""
-            }
-        }
-        else {
-            $combinedArgs.Add($arg) | Out-Null
-        }
-    }
-    
-    # Parse arguments
-    for ($i = 0; $i -lt $combinedArgs.Count; $i++) {
-        switch ($combinedArgs[$i]) {
-            "-H" {
-                if ($i + 1 -lt $combinedArgs.Count) {
-                    $header = $combinedArgs[$i+1] -split ":", 2
-                    $headerName = $header[0].Trim()
-                    $headerValue = $header[1].Trim()
-                    
-                    # Handle environment variables in header values
-                    if ($headerValue -match '\$\w+') {
-                        $varName = $headerValue -replace '.*\$(\w+).*', '$1'
-                        $envValue = [Environment]::GetEnvironmentVariable($varName)
-                        $headerValue = $headerValue -replace "\`$$varName", $envValue
-                    }
-                    
-                    $headers[$headerName] = $headerValue
-                    $i++
-                }
-            }
-            "-d" {
-                if ($i + 1 -lt $combinedArgs.Count) {
-                    $body = $combinedArgs[$i+1]
-                    $method = 'POST'
-                    $i++
-                }
-            }
-            "-X" {
-                if ($i + 1 -lt $combinedArgs.Count) {
-                    $method = $combinedArgs[$i+1]
-                    $i++
-                }
-            }
-            default {
-                if (-not $uri -and -not $combinedArgs[$i].StartsWith('-')) {
-                    $uri = $combinedArgs[$i]
-                }
-            }
-        }
-    }
-    
-    # Build and execute request
-    if ($headers.Count -gt 0) { $params.Headers = $headers }
-    if ($body) { $params.Body = $body }
-    $params.Uri = $uri
-    $params.Method = $method
-    
-    try {
-        Invoke-RestMethod @params
-    } catch {
-        Write-Error $_.Exception.Message
-    }
-}
 
 
 
@@ -372,53 +284,93 @@ function Show-Tree {
     )
 
 $fileTypes = @{
-        # Text and Documents
-        '.txt'  = '📄'; '.doc'  = '📄'; '.docx' = '📄'
-        '.pdf'  = '📕'; '.md'   = '📖'; '.json' = '🔧'
-        '.xml'  = '📰'; '.csv'  = '📊'; '.xlsx' = '📊'
-        '.rtf'  = '📄'; '.odt'  = '📄'
-        
-        # Source Code
-        '.ps1'  = '💠'; '.psm1' = '💠'; '.psd1' = '💠'
-        '.py'   = '🐍'; '.js'   = '🟨'; '.ts'   = '🔷'
-        '.html' = '🌐'; '.css'  = '🎨'; '.scss' = '🎨'
-        '.cpp'  = '🔵'; '.c'    = '🔵'; '.h'    = '🔵'
-        '.java' = '☕'; '.class'= '☕'
-        '.rs'   = '🦀'; '.go'   = '🔹'
-        
-        # Media
-        '.jpg'  = '🖼️'; '.jpeg' = '🖼️'; '.png'  = '🖼️'
-        '.gif'  = '🎬'; '.mp4'  = '🎥'; '.mov'  = '🎥'
-        '.mp3'  = '🎵'; '.wav'  = '🎵'; '.ogg'  = '🎵'
-        
-        # Archives
-        '.zip'  = '📦'; '.rar'  = '📦'; '.7z'   = '📦'
-        '.tar'  = '📦'; '.gz'   = '📦'
-        
-        # Executables and Scripts
-        '.exe'  = '⚡'; '.bat'  = '⚡'; '.sh'   = '⚡'
-        '.msi'  = '📥'; '.app'  = '📱'
-        
-        # Configuration
-        '.ini'  = '⚙️'; '.cfg'  = '⚙️'; '.yml'  = '📝'
-        '.yaml' = '📝'; '.conf' = '⚙️'; '.env'  = '🔒'
-        
-        # Git and Version Control
-        '.git'  = '🌿'; '.gitignore' = '🚫'; '.gitattributes' = '📋'
-        '.gitmodules' = '🔗'; '.gitkeep' = '📌'
-        
-        # Web Development
-        '.jsx'  = '⚛️'; '.tsx'  = '⚛️'; '.vue'  = '🟩'
-        '.php'  = '🐘'; '.rb'   = '💎'; '.swift'= '🦅'
-        '.sass' = '💅'; '.less' = '💅'
-        
-        # Database
-        '.sql'  = '🗃️'; '.db'   = '🗃️'; '.sqlite'= '🗃️'
-        
-        # Other
-        '.log'  = '📋'; '.bak'  = '🔄'; '.tmp'  = '⏳'
-        '.dll'  = '🔧'; '.sys'  = '💻'; '.iso'  = '💿'
-    }
+    # Text and Documents
+    '.txt'  = '📄'; '.doc'  = '📄'; '.docx' = '📄'; '.odt' = '📄'
+    '.pdf'  = '📕'; '.md'   = '📖'; '.json' = '🔧'
+    '.xml'  = '📰'; '.csv'  = '📊'; '.xlsx' = '📊'; '.xls' = '📊'
+    '.rtf'  = '📄'; '.tex'  = '📜'; '.epub' = '📚'
+    '.mobi' = '📚'; '.azw3' = '📚'; '.azw'  = '📚'
+    '.ppt'  = '📊'; '.pptx' = '📊'; '.key'  = '📊'
+    '.pages'= '📄'; '.gdoc' = '📄'; '.gdraw'= '🎨'
+    
+    # Source Code
+    '.ps1'  = '💠'; '.psm1' = '💠'; '.psd1' = '💠'
+    '.py'   = '🐍'; '.pyc'  = '🐍'; '.pyw'  = '🐍'
+    '.js'   = '🟨'; '.jsx'  = '🟨'; '.ts'   = '🔷'
+    '.tsx'  = '🔷'; '.vue'  = '🟢'; '.svelte' = '🔥'
+    '.html' = '🌐'; '.css'  = '🎨'; '.scss' = '🎨'
+    '.less' = '🎨'; '.sass' = '🎨'
+    '.cpp'  = '🔵'; '.c'    = '🔵'; '.h'    = '🔵'
+    '.hpp'  = '🔵'; '.hxx'  = '🔵'; '.cc'   = '🔵'
+    '.java' = '☕'; '.class'= '☕'; '.jar'  = '☕'
+    '.kt'   = '🟦'; '.scala'= '🔵'; '.groovy' = '🟣'
+    '.rs'   = '🦀'; '.go'   = '🔹'; '.nim'  = '👑'
+    '.lua'  = '🌙'; '.r'    = '📊'; '.m'    = '🔢'
+    '.f90'  = '🔢'; '.f95'  = '🔢'; '.f03'  = '🔢'
+    '.asm'  = '⚙️'; '.s'    = '⚙️'; '.ko'   = '🐧'
+    '.swift'= '🦅'; '.dart' = '🎯'; '.vb'   = '🅱️'
+    '.fs'   = '🔷'; '.jl'   = '🔹'; '.sh'   = '🐚'
+    '.zsh'  = '🌰'; '.bash' = '🐚'; '.pl'   = '🐪'
+    '.php'  = '🐘'; '.sql'  = '🗃️'; '.rb'   = '💎'
+    '.rkt'  = '🍇'; '.clj'  = '🍏'; '.erl'  = '📡'
+    
+    # Media
+    '.jpg'  = '🖼️'; '.jpeg' = '🖼️'; '.png'  = '🖼️'
+    '.gif'  = '🎬'; '.mp4'  = '🎥'; '.mov'  = '🎥'
+    '.avi'  = '🎥'; '.mkv'  = '🎥'; '.wmv'  = '🎥'
+    '.mp3'  = '🎵'; '.wav'  = '🎵'; '.ogg'  = '🎵'
+    '.flac' = '🎵'; '.m4a'  = '🎵'; '.aac'  = '🎵'
+    '.webp' = '🖼️'; '.svg'  = '🎨'; '.ico'  = '🎨'
+    '.webm' = '🎥'; '.heic' = '📷'; '.raw'  = '📸'
+    '.psd'  = '🎨'; '.ai'   = '🎨'; '.xcf'  = '🎨'
+    '.tiff' = '🖼️'; '.bmp'  = '🖼️'; '.cr2'  = '📸'
+    '.mpeg' = '🎥'; '.m2ts' = '🎥'; '.3gp'  = '🎥'
+    
+    # Archives
+    '.zip'  = '📦'; '.rar'  = '📦'; '.7z'   = '📦'
+    '.tar'  = '📦'; '.gz'   = '📦'; '.bz2'  = '📦'
+    '.xz'   = '📦'; '.iso'  = '💿'; '.img'  = '💿'
+    '.tgz'  = '📦'; '.tbz2' = '📦'; '.lz4'  = '📦'
+    '.cab'  = '📦'; '.dmg'  = '💿'; '.s7z'  = '📦'
+    '.arj'  = '📦'; '.deb'  = '📦'; '.rpm'  = '📦'
+    
+    # Executables and Scripts
+    '.exe'  = '⚡'; '.bat'  = '⚡'; '.cmd'  = '⚡'
+    '.msi'  = '📥'; '.app'  = '📱'; '.apk'  = '📱'
+    '.vbs'  = '⚡'; '.lnk'  = '🔗'
+    '.cgi'  = '⚙️'; '.bin'  = '💾'; '.run'  = '⚡'
+    
+    # Configuration
+    '.ini'  = '⚙️'; '.cfg'  = '⚙️'; '.yml'  = '📝'
+    '.yaml' = '📝'; '.conf' = '⚙️'; '.env'  = '🔒'
+    '.toml' = '⚙️'; '.config' = '⚙️'; '.prefs' = '⚙️'
+    
+    # Git and Version Control
+    '.gitignore' = '🚫'; '.gitattributes' = '📋'
+    '.gitmodules' = '🔗'; '.diff' = '📝'; '.patch' = '🔨'
+    
+    # Web Development
+    '.wasm' = '⚡'; '.elm'  = '🌳'; '.coffee' = '☕'
+    '.asp'  = '🌐'; '.aspx' = '🌐'; '.cshtml' = '🌐'
+    
+    # Database
+    '.sqlite'= '🗃️'; '.mdb'  = '🗃️'; '.accdb'= '🗃️'
+    '.pgsql' = '🐘'; '.mongodb' = '🍃'; '.redis' = '🔴'
+    '.cql'   = '🗄️'; '.ora'  = '🗄️'
+    
+    # Container and Cloud
+    '.dockerfile' = '🐳'; '.docker' = '🐳'
+    '.tf'   = '☁️'; '.tfstate' = '☁️'
+    '.k8s'  = '☸️'; '.aws'  = '☁️'; '.azure' = '☁️'
+    
+    # Other
+    '.log'  = '📋'; '.bak'  = '🔄'; '.tmp'  = '⏳'
+    '.dll'  = '🔧'; '.sys'  = '💻'
+    '.dat'  = '📊'; '.o'    = '⚙️'
+    '.lock' = '🔒'; '.pid'  = '🔢'; '.sock' = '🔌'
+    '.torrent' = '📡'; '.backup' = '🔄'
+    '.DS_Store' = '📁'; '.Thumbs.db' = '🖼️'
+}
     
     # Initialize counters at root level
     if ($IndentLevel -eq 0) {
@@ -523,7 +475,7 @@ function Show-TreeWithParams {
 
 
 # Initialize Starship with correct Windows paths
-$configDir = Join-Path $HOME "AppData\Local\config"
+$configDir = Join-Path $HOME "AppData\Local\.config"
 $configFile = Join-Path $configDir "starship.toml"
 $ENV:STARSHIP_CONFIG = $configFile.Replace('\', '/')
 
@@ -659,3 +611,21 @@ Set-Alias -Name loadkeys -Value Load-Keys
 Load-Keys
 
 
+# SSH Session Detection
+#
+# If $env:SSH_CONNECTION or $env:SSH_CLIENT is present, we assume this is an
+# SSH session.
+# ---------------------------------------------------------------------------
+
+if (($env:SSH_CONNECTION -or $env:SSH_CLIENT) -and $null -eq $env:WT_SESSION) {
+    Write-Host "`n[SSH DETECTED] Loading SSH-specific configurations..." -ForegroundColor Cyan
+
+    $SSHConfigScript = Join-Path $HOME "ssh_profile.ps1"
+
+    if (Test-Path $SSHConfigScript) {
+        . $SSHConfigScript
+        Write-Host "[SSH] SSH keys management functions loaded." -ForegroundColor Green
+    } else {
+        Write-Host "[SSH] WARNING: SSH keys management script not found at $SSHConfigScript." -ForegroundColor Yellow
+    }
+}
